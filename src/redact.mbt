@@ -315,6 +315,25 @@ pub fn redact_env_line(line : String) -> String {
   }
 }
 
+/// Redact every dotenv-style line inside a text blob.
+pub fn redact_env_text(text : String) -> String {
+  if text == "" {
+    return ""
+  }
+  let mut redacted = ""
+  let mut first = true
+  for line_view in text.split("\n") {
+    let line = redact_env_line(line_view.to_owned())
+    if first {
+      redacted = line
+      first = false
+    } else {
+      redacted = redacted + "\n" + line
+    }
+  }
+  redacted
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -424,5 +443,12 @@ test "redact_env_line handles dotenv assignments" {
   inspect(
     redact_env_line("export TRACE_ID=req-123"),
     content="export TRACE_ID=req-123",
+  )
+}
+
+test "redact_env_text processes multi-line config blocks" {
+  inspect(
+    redact_env_text("# local env\nAPI_KEY=sk-prod-secret-1234\nTRACE_ID=req-123"),
+    content="# local env\nAPI_KEY=sk-************1234\nTRACE_ID=req-123",
   )
 }
