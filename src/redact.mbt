@@ -243,6 +243,18 @@ pub fn redact_headers(headers : Map[String, String]) -> Map[String, String] {
   redacted
 }
 
+/// Redact a single query-string pair.
+pub fn redact_query_pair(pair : String) -> String {
+  match pair.find("=") {
+    Some(index) => {
+      let key = pair[:index].to_owned()
+      let value = pair[index + 1:].to_owned()
+      key + "=" + redact_key_value(key, value)
+    }
+    None => pair
+  }
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -323,4 +335,9 @@ test "redact_headers applies header redaction across a map" {
     content="Bearer sk-************1234",
   )
   inspect(redacted.get("X-Request-Id").unwrap(), content="req-123")
+}
+
+test "redact_query_pair masks sensitive query parameters" {
+  inspect(redact_query_pair("api_key=sk-prod-secret-1234"), content="api_key=sk-************1234")
+  inspect(redact_query_pair("page=2"), content="page=2")
 }
