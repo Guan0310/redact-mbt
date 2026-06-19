@@ -165,6 +165,34 @@ pub fn normalize_key_name(name : String) -> String {
   buffer.contents().to_unchecked_string().trim(char_set="_").to_owned()
 }
 
+/// Check whether a key name usually carries secret material.
+pub fn is_sensitive_key(name : String) -> Bool {
+  let normalized = normalize_key_name(name)
+  match normalized {
+    "authorization" => true
+    "proxy_authorization" => true
+    "x_api_key" => true
+    "api_key" => true
+    "apikey" => true
+    "access_token" => true
+    "refresh_token" => true
+    "id_token" => true
+    "token" => true
+    "password" => true
+    "passwd" => true
+    "pwd" => true
+    "secret" => true
+    "client_secret" => true
+    "cookie" => true
+    "set_cookie" => true
+    _ =>
+      normalized.has_suffix("_token") ||
+      normalized.has_suffix("_secret") ||
+      normalized.has_suffix("_password") ||
+      normalized.has_suffix("_key")
+  }
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -213,4 +241,10 @@ test "mask_token keeps edges for unprefixed tokens" {
 
 test "normalize_key_name lowers case and unifies separators" {
   inspect(normalize_key_name(" X-Api.Key "), content="x_api_key")
+}
+
+test "is_sensitive_key detects common secret field names" {
+  inspect(is_sensitive_key("Authorization"), content="true")
+  inspect(is_sensitive_key("client.secret"), content="true")
+  inspect(is_sensitive_key("trace_id"), content="false")
 }
