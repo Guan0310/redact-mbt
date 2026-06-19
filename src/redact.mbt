@@ -32,6 +32,28 @@ pub fn mask_keep_edges(value : String, left : Int, right : Int) -> String {
   value[value.length() - right:].to_owned()
 }
 
+/// Mask the local part of an email address while preserving the domain.
+pub fn mask_email(email : String) -> String {
+  match email.find("@") {
+    Some(at) => {
+      if at == 0 || at == email.length() - 1 {
+        return redact_full(email)
+      }
+      let account = email[:at].to_owned()
+      let domain = email[at:].to_owned()
+      let masked_local = if account.length() == 1 {
+        "*"
+      } else if account.length() == 2 {
+        account[:1].to_owned() + "*"
+      } else {
+        mask_keep_edges(account, 1, 1)
+      }
+      masked_local + domain
+    }
+    None => redact_full(email)
+  }
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -46,4 +68,18 @@ test "mask_keep_edges preserves prefix and suffix" {
 
 test "mask_keep_edges falls back to full redaction for short values" {
   inspect(mask_keep_edges("abc", 2, 2), content="[REDACTED]")
+}
+
+test "mask_email preserves domain and masks local part" {
+  inspect(mask_email("alice@example.com"), content="a***e@example.com")
+}
+
+test "mask_email handles short local parts" {
+  inspect(mask_email("ab@example.com"), content="a*@example.com")
+  inspect(mask_email("a@example.com"), content="*@example.com")
+}
+
+test "mask_email rejects malformed inputs" {
+  inspect(mask_email("not-an-email"), content="[REDACTED]")
+  inspect(mask_email("@example.com"), content="[REDACTED]")
 }
