@@ -255,6 +255,25 @@ pub fn redact_query_pair(pair : String) -> String {
   }
 }
 
+/// Redact a complete query string.
+pub fn redact_query_string(query : String) -> String {
+  if query == "" {
+    return ""
+  }
+  let mut redacted = ""
+  let mut first = true
+  for part_view in query.split("&") {
+    let part = redact_query_pair(part_view.to_owned())
+    if first {
+      redacted = part
+      first = false
+    } else {
+      redacted = redacted + "&" + part
+    }
+  }
+  redacted
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -340,4 +359,11 @@ test "redact_headers applies header redaction across a map" {
 test "redact_query_pair masks sensitive query parameters" {
   inspect(redact_query_pair("api_key=sk-prod-secret-1234"), content="api_key=sk-************1234")
   inspect(redact_query_pair("page=2"), content="page=2")
+}
+
+test "redact_query_string masks multiple parameters" {
+  inspect(
+    redact_query_string("page=2&access_token=abcdef1234567890&phone=13800138000"),
+    content="page=2&access_token=abcd********7890&phone=*******8000",
+  )
 }
