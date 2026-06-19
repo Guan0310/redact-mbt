@@ -233,6 +233,16 @@ pub fn redact_header_value(name : String, value : String) -> String {
   redact_key_value(name, value)
 }
 
+/// Redact a batch of HTTP headers.
+pub fn redact_headers(headers : Map[String, String]) -> Map[String, String] {
+  let redacted : Map[String, String] = Map([])
+  for name in headers.keys() {
+    let value = headers.get(name).unwrap()
+    redacted.set(name, redact_header_value(name, value))
+  }
+  redacted
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -301,4 +311,16 @@ test "redact_header_value keeps authorization schemes visible" {
     redact_header_value("Authorization", "Bearer sk-prod-secret-1234"),
     content="Bearer sk-************1234",
   )
+}
+
+test "redact_headers applies header redaction across a map" {
+  let headers : Map[String, String] = Map([])
+  headers.set("Authorization", "Bearer sk-prod-secret-1234")
+  headers.set("X-Request-Id", "req-123")
+  let redacted = redact_headers(headers)
+  inspect(
+    redacted.get("Authorization").unwrap(),
+    content="Bearer sk-************1234",
+  )
+  inspect(redacted.get("X-Request-Id").unwrap(), content="req-123")
 }
