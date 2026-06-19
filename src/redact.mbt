@@ -24,6 +24,15 @@ fn is_ascii_digit(ch : Char) -> Bool {
   code >= b'0'.to_int() && code <= b'9'.to_int()
 }
 
+fn ascii_lower(ch : Char) -> Char {
+  let code = ch.to_int()
+  if code >= b'A'.to_int() && code <= b'Z'.to_int() {
+    Int::unsafe_to_char(code + 32)
+  } else {
+    ch
+  }
+}
+
 fn count_digits(value : String) -> Int {
   let mut total = 0
   for ch in value {
@@ -136,6 +145,26 @@ pub fn mask_token(token : String) -> String {
   token[token.length() - 4:].to_owned()
 }
 
+/// Normalize a key name for case-insensitive sensitive-field matching.
+pub fn normalize_key_name(name : String) -> String {
+  let trimmed = name.trim().to_owned()
+  let buffer = Buffer(size_hint=trimmed.length())
+  let mut last_was_separator = false
+  for ch in trimmed {
+    let lowered = ascii_lower(ch)
+    if lowered == '-' || lowered == '.' || lowered == ' ' {
+      if !last_was_separator {
+        buffer.write_char_utf16le('_')
+        last_was_separator = true
+      }
+    } else {
+      buffer.write_char_utf16le(lowered)
+      last_was_separator = false
+    }
+  }
+  buffer.contents().to_unchecked_string().trim(char_set="_").to_owned()
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -180,4 +209,8 @@ test "mask_token preserves known prefixes and suffixes" {
 
 test "mask_token keeps edges for unprefixed tokens" {
   inspect(mask_token("abcdef1234567890"), content="abcd********7890")
+}
+
+test "normalize_key_name lowers case and unifies separators" {
+  inspect(normalize_key_name(" X-Api.Key "), content="x_api_key")
 }
