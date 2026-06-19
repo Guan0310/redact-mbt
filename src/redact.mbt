@@ -19,6 +19,21 @@ fn repeat_mask(count : Int) -> String {
   buffer.contents().to_unchecked_string()
 }
 
+fn is_ascii_digit(ch : Char) -> Bool {
+  let code = ch.to_int()
+  code >= b'0'.to_int() && code <= b'9'.to_int()
+}
+
+fn count_digits(value : String) -> Int {
+  let mut total = 0
+  for ch in value {
+    if is_ascii_digit(ch) {
+      total = total + 1
+    }
+  }
+  total
+}
+
 /// Preserve the left and right edges of a string while masking the middle.
 pub fn mask_keep_edges(value : String, left : Int, right : Int) -> String {
   if value == "" {
@@ -54,6 +69,32 @@ pub fn mask_email(email : String) -> String {
   }
 }
 
+/// Mask all but the last four digits of a phone-like string.
+pub fn mask_phone(phone : String) -> String {
+  let digit_count = count_digits(phone)
+  if phone == "" {
+    return ""
+  }
+  if digit_count <= 4 {
+    return redact_full(phone)
+  }
+  let buffer = Buffer(size_hint=phone.length())
+  let mut digits_left = digit_count
+  for ch in phone {
+    if is_ascii_digit(ch) {
+      if digits_left > 4 {
+        buffer.write_char_utf16le(Int::unsafe_to_char(b'*'.to_int()))
+      } else {
+        buffer.write_char_utf16le(ch)
+      }
+      digits_left = digits_left - 1
+    } else {
+      buffer.write_char_utf16le(ch)
+    }
+  }
+  buffer.contents().to_unchecked_string()
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -82,4 +123,12 @@ test "mask_email handles short local parts" {
 test "mask_email rejects malformed inputs" {
   inspect(mask_email("not-an-email"), content="[REDACTED]")
   inspect(mask_email("@example.com"), content="[REDACTED]")
+}
+
+test "mask_phone preserves formatting while masking leading digits" {
+  inspect(mask_phone("+86 138-0013-8000"), content="+** ***-****-8000")
+}
+
+test "mask_phone falls back to full redaction for short numbers" {
+  inspect(mask_phone("1234"), content="[REDACTED]")
 }
