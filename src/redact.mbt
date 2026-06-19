@@ -292,6 +292,29 @@ pub fn redact_url(url : String) -> String {
   }
 }
 
+/// Redact a single dotenv-style assignment line.
+pub fn redact_env_line(line : String) -> String {
+  let trimmed = line.trim().to_owned()
+  if trimmed == "" || trimmed.has_prefix("#") {
+    return line
+  }
+  let has_export = trimmed.has_prefix("export ")
+  let body = if has_export {
+    trimmed[7:].to_owned()
+  } else {
+    trimmed
+  }
+  return match body.find("=") {
+    Some(index) => {
+      let key = body[:index].trim().to_owned()
+      let value = body[index + 1:].trim().to_owned()
+      let prefix = if has_export { "export " } else { "" }
+      prefix + key + "=" + redact_key_value(key, value)
+    }
+    None => line
+  }
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -390,5 +413,16 @@ test "redact_url only rewrites the query section" {
   inspect(
     redact_url("https://example.com/callback?api_key=sk-prod-secret-1234&page=2#done"),
     content="https://example.com/callback?api_key=sk-************1234&page=2#done",
+  )
+}
+
+test "redact_env_line handles dotenv assignments" {
+  inspect(
+    redact_env_line("API_KEY=sk-prod-secret-1234"),
+    content="API_KEY=sk-************1234",
+  )
+  inspect(
+    redact_env_line("export TRACE_ID=req-123"),
+    content="export TRACE_ID=req-123",
   )
 }
