@@ -214,6 +214,25 @@ pub fn redact_key_value(key : String, value : String) -> String {
   redact_full(value)
 }
 
+/// Redact a single HTTP header value.
+pub fn redact_header_value(name : String, value : String) -> String {
+  let normalized = normalize_key_name(name)
+  if normalized == "authorization" || normalized == "proxy_authorization" {
+    let trimmed = value.trim().to_owned()
+    return match trimmed.find(" ") {
+      Some(space) => {
+        if space == 0 || space == trimmed.length() - 1 {
+          redact_full(trimmed)
+        } else {
+          trimmed[:space + 1].to_owned() + mask_token(trimmed[space + 1:].trim().to_owned())
+        }
+      }
+      None => redact_full(trimmed)
+    }
+  }
+  redact_key_value(name, value)
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -275,4 +294,11 @@ test "redact_key_value routes values through specialized maskers" {
   inspect(redact_key_value("phone", "13800138000"), content="*******8000")
   inspect(redact_key_value("api_key", "sk-prod-secret-1234"), content="sk-************1234")
   inspect(redact_key_value("trace_id", "abc-123"), content="abc-123")
+}
+
+test "redact_header_value keeps authorization schemes visible" {
+  inspect(
+    redact_header_value("Authorization", "Bearer sk-prod-secret-1234"),
+    content="Bearer sk-************1234",
+  )
 }
