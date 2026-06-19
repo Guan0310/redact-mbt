@@ -193,6 +193,27 @@ pub fn is_sensitive_key(name : String) -> Bool {
   }
 }
 
+/// Redact a value according to the semantics of its key name.
+pub fn redact_key_value(key : String, value : String) -> String {
+  let normalized = normalize_key_name(key)
+  if normalized.contains("email") {
+    return mask_email(value)
+  }
+  if normalized.contains("phone") || normalized.contains("mobile") || normalized == "tel" {
+    return mask_phone(value)
+  }
+  if !is_sensitive_key(normalized) {
+    return value
+  }
+  if normalized.contains("password") || normalized == "pwd" {
+    return redact_full(value)
+  }
+  if normalized.contains("token") || normalized.contains("secret") || normalized.contains("key") {
+    return mask_token(value)
+  }
+  redact_full(value)
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -247,4 +268,11 @@ test "is_sensitive_key detects common secret field names" {
   inspect(is_sensitive_key("Authorization"), content="true")
   inspect(is_sensitive_key("client.secret"), content="true")
   inspect(is_sensitive_key("trace_id"), content="false")
+}
+
+test "redact_key_value routes values through specialized maskers" {
+  inspect(redact_key_value("contact_email", "alice@example.com"), content="a***e@example.com")
+  inspect(redact_key_value("phone", "13800138000"), content="*******8000")
+  inspect(redact_key_value("api_key", "sk-prod-secret-1234"), content="sk-************1234")
+  inspect(redact_key_value("trace_id", "abc-123"), content="abc-123")
 }
