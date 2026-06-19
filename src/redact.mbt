@@ -34,6 +34,27 @@ fn count_digits(value : String) -> Int {
   total
 }
 
+fn token_prefix_length(token : String) -> Int {
+  let dash = token.find("-")
+  let underscore = token.find("_")
+  let cutoff = 6
+  match (dash, underscore) {
+    (Some(left), Some(right)) =>
+      if left < right && left > 0 && left <= cutoff {
+        left + 1
+      } else if right > 0 && right <= cutoff {
+        right + 1
+      } else {
+        0
+      }
+    (Some(index), None) =>
+      if index > 0 && index <= cutoff { index + 1 } else { 0 }
+    (None, Some(index)) =>
+      if index > 0 && index <= cutoff { index + 1 } else { 0 }
+    (None, None) => 0
+  }
+}
+
 /// Preserve the left and right edges of a string while masking the middle.
 pub fn mask_keep_edges(value : String, left : Int, right : Int) -> String {
   if value == "" {
@@ -95,6 +116,26 @@ pub fn mask_phone(phone : String) -> String {
   buffer.contents().to_unchecked_string()
 }
 
+/// Mask tokens while preserving a recognizable prefix and suffix.
+pub fn mask_token(token : String) -> String {
+  if token == "" {
+    return ""
+  }
+  if token.length() <= 8 {
+    return redact_full(token)
+  }
+  let prefix_len = token_prefix_length(token)
+  if prefix_len == 0 {
+    return mask_keep_edges(token, 4, 4)
+  }
+  if token.length() <= prefix_len + 4 {
+    return redact_full(token)
+  }
+  token[:prefix_len].to_owned() +
+  repeat_mask(token.length() - prefix_len - 4) +
+  token[token.length() - 4:].to_owned()
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -131,4 +172,12 @@ test "mask_phone preserves formatting while masking leading digits" {
 
 test "mask_phone falls back to full redaction for short numbers" {
   inspect(mask_phone("1234"), content="[REDACTED]")
+}
+
+test "mask_token preserves known prefixes and suffixes" {
+  inspect(mask_token("sk-prod-secret-1234"), content="sk-************1234")
+}
+
+test "mask_token keeps edges for unprefixed tokens" {
+  inspect(mask_token("abcdef1234567890"), content="abcd********7890")
 }
