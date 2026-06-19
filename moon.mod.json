@@ -1,0 +1,9 @@
+{
+  "name": "guan0310/redact",
+  "version": "0.1.0",
+  "readme": "README.md",
+  "repository": "https://github.com/Guan0310/redact-mbt.git",
+  "license": "MIT",
+  "keywords": ["redact", "mask", "privacy", "security", "logging"],
+  "description": "Sensitive data redaction helpers for MoonBit"
+}
