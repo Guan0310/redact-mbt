@@ -274,6 +274,24 @@ pub fn redact_query_string(query : String) -> String {
   redacted
 }
 
+/// Redact sensitive query parameters inside a full URL.
+pub fn redact_url(url : String) -> String {
+  match url.find("?") {
+    Some(question) => {
+      let prefix = url[:question + 1].to_owned()
+      let tail = url[question + 1:].to_owned()
+      match tail.find("#") {
+        Some(fragment) =>
+          prefix +
+          redact_query_string(tail[:fragment].to_owned()) +
+          tail[fragment:].to_owned()
+        None => prefix + redact_query_string(tail)
+      }
+    }
+    None => url
+  }
+}
+
 test "redact_full keeps empty values untouched" {
   inspect(redact_full(""), content="")
 }
@@ -365,5 +383,12 @@ test "redact_query_string masks multiple parameters" {
   inspect(
     redact_query_string("page=2&access_token=abcdef1234567890&phone=13800138000"),
     content="page=2&access_token=abcd********7890&phone=*******8000",
+  )
+}
+
+test "redact_url only rewrites the query section" {
+  inspect(
+    redact_url("https://example.com/callback?api_key=sk-prod-secret-1234&page=2#done"),
+    content="https://example.com/callback?api_key=sk-************1234&page=2#done",
   )
 }
